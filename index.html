@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Motricité oculaire</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:#f5f5f3;color:#111}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* PANEL */
+#panel{padding:10px 14px;background:#fff;border-bottom:1px solid #e0e0e0;flex-shrink:0}
+.row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-bottom:6px}
+.row:last-child{margin-bottom:0}
+label{font-size:12px;color:#666;white-space:nowrap}
+select{font-size:13px;border:1px solid #ccc;border-radius:6px;padding:4px 8px;background:#fff;color:#111;cursor:pointer}
+select:focus{outline:2px solid #1D9E75;outline-offset:1px}
+input[type=range]{width:80px;accent-color:#1D9E75;cursor:pointer}
+.val{font-size:13px;font-weight:600;min-width:26px;display:inline-block}
+.btn{border:1px solid #ccc;border-radius:6px;padding:5px 14px;font-size:13px;cursor:pointer;background:#fff;color:#111;transition:background 0.15s}
+.btn:hover{background:#f0f0f0}
+.btn.green{background:#1D9E75;color:#fff;border-color:#1D9E75}
+.btn.green:hover{background:#178a64}
+.btn.red{background:#fff;color:#c0392b;border-color:#c0392b}
+.btn.red:hover{background:#fdf0ee}
+
+/* URL BOX */
+#url-box{display:none;margin-top:8px;padding:8px 12px;background:#f0f9f5;border:1px solid #b2ddd0;border-radius:6px;font-size:12px}
+#url-text{word-break:break-all;color:#0a6650;font-weight:500}
+.copy-btn{font-size:12px;padding:3px 10px;margin-left:8px;background:#1D9E75;color:#fff;border:none;border-radius:5px;cursor:pointer}
+.copy-btn:hover{background:#178a64}
+
+/* INFO PATIENT */
+#patient-hint{display:none;margin-top:6px;padding:6px 10px;background:#fffbe6;border:1px solid #f0d060;border-radius:6px;font-size:12px;color:#7a5c00}
+
+/* CANVAS */
+#canvas-wrap{flex:1;position:relative;overflow:hidden;cursor:none}
+canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+
+/* TIMER */
+#timer-bar{position:absolute;top:0;left:0;height:3px;background:#1D9E75;transition:width 0.5s linear;z-index:10}
+#timer-label{position:absolute;top:8px;right:12px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.35);padding:3px 8px;border-radius:20px;z-index:10;display:none}
+#end-screen{display:none;position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:20;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+#end-screen h2{color:#fff;font-size:28px;font-weight:600}
+#end-screen p{color:rgba(255,255,255,0.8);font-size:16px}
+#end-screen button{padding:10px 28px;font-size:15px;border-radius:8px;border:none;background:#1D9E75;color:#fff;cursor:pointer}
+
+@media(max-width:600px){
+  #panel{padding:8px 10px}
+  .row{gap:5px 8px}
+  select{font-size:12px;padding:3px 6px}
+  .btn{font-size:12px;padding:4px 10px}
+  input[type=range]{width:60px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div id="panel">
+  <div class="row">
+    <label>Exercice</label>
+    <select id="mode">
+      <option value="pursuit">Poursuite</option>
+      <option value="saccade">Saccades</option>
+      <option value="vergence">Vergences</option>
+      <option value="fixation">Fixation</option>
+    </select>
+    <label>Mire</label>
+    <select id="target">
+      <option value="cross">Croix</option>
+      <option value="ring">Anneau</option>
+      <option value="butterfly">Papillon</option>
+      <option value="optotype">Optotype</option>
+    </select>
+    <label>Fond</label>
+    <select id="bg">
+      <option value="white">Blanc</option>
+      <option value="black">Noir</option>
+      <option value="checker">Damier</option>
+    </select>
+    <label>Axe</label>
+    <select id="axis">
+      <option value="h">Horizontal</option>
+      <option value="v">Vertical</option>
+      <option value="inf">Infini ∞</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>Vitesse</label>
+    <input type="range" id="speed" min="1" max="10" value="4" step="1">
+    <span class="val" id="speed-val">4</span>
+    <label>Taille</label>
+    <input type="range" id="size" min="1" max="5" value="2" step="1">
+    <span class="val" id="size-val">2</span>
+    <label>Durée (s)</label>
+    <input type="range" id="dur" min="10" max="300" value="60" step="5">
+    <span class="val" id="dur-val">60</span>
+    <button class="btn green" id="startBtn">▶ Démarrer</button>
+    <button class="btn red" id="stopBtn">■ Arrêter</button>
+    <button class="btn" id="fsBtn">⛶ Plein écran</button>
+    <button class="btn" id="urlBtn">🔗 Lien patient</button>
+  </div>
+  <div id="url-box">
+    <span id="url-text"></span>
+    <button class="copy-btn" id="copyBtn">Copier</button>
+    <div id="patient-hint">👆 Copiez ce lien et envoyez-le à votre patient. L'exercice démarrera automatiquement à l'ouverture.</div>
+  </div>
+</div>
+
+<div id="canvas-wrap">
+  <div id="timer-bar" style="width:0%"></div>
+  <div id="timer-label"></div>
+  <canvas id="c"></canvas>
+  <div id="end-screen">
+    <h2>✓ Séance terminée</h2>
+    <p>Bravo ! Vous pouvez fermer cette page.</p>
+    <button onclick="restartFromEnd()">Recommencer</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const canvas = $('c'), ctx = canvas.getContext('2d');
+let W, H, running=false, animId=null, t=0, sacTimer=0, sacSide=0;
+let startTime=0, durMs=0;
+let checkerPat=null, checkerW=0, checkerH=0;
+
+function resize(){
+  const wrap=$('canvas-wrap');
+  W=canvas.width=wrap.clientWidth;
+  H=canvas.height=wrap.clientHeight;
+  checkerPat=null;
+}
+
+function buildChecker(){
+  const s=40;
+  const off=document.createElement('canvas');
+  off.width=s*2; off.height=s*2;
+  const c=off.getContext('2d');
+  c.fillStyle='#000'; c.fillRect(0,0,s*2,s*2);
+  c.fillStyle='#fff'; c.fillRect(0,0,s,s); c.fillRect(s,s,s,s);
+  checkerPat=ctx.createPattern(off,'repeat');
+}
+
+function getParams(){
+  return{
+    mode:$('mode').value, target:$('target').value,
+    bg:$('bg').value, axis:$('axis').value,
+    speed:parseInt($('speed').value), size:parseInt($('size').value),
+    dur:parseInt($('dur').value)
+  };
+}
+
+function drawBG(p){
+  if(p.bg==='black'){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);}
+  else if(p.bg==='white'){ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);}
+  else{
+    if(!checkerPat)buildChecker();
+    ctx.fillStyle=checkerPat;ctx.fillRect(0,0,W,H);
+  }
+}
+
+function mireColor(p){
+  if(p.bg==='white')return'#111';
+  if(p.bg==='black')return'#fff';
+  return'#e00';
+}
+function accentColor(p){
+  if(p.bg==='checker')return'#e00';
+  return p.bg==='black'?'#5DCAA5':'#1D9E75';
+}
+
+function drawMire(p,x,y){
+  const sz=10+p.size*8;
+  const col=mireColor(p);
+  const acc=accentColor(p);
+  ctx.save();ctx.translate(x,y);
+  if(p.target==='cross'){
+    ctx.strokeStyle=col;ctx.lineWidth=Math.max(2,p.size);
+    ctx.beginPath();ctx.moveTo(-sz,0);ctx.lineTo(sz,0);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,-sz);ctx.lineTo(0,sz);ctx.stroke();
+    ctx.fillStyle=acc;ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.fill();
+  }else if(p.target==='ring'){
+    ctx.strokeStyle=col;ctx.lineWidth=Math.max(2,p.size);
+    ctx.beginPath();ctx.arc(0,0,sz,0,Math.PI*2);ctx.stroke();
+    ctx.strokeStyle=acc;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(-5,0);ctx.lineTo(5,0);ctx.moveTo(0,-5);ctx.lineTo(0,5);ctx.stroke();
+  }else if(p.target==='butterfly'){
+    drawButterfly(sz,col,acc);
+  }else{
+    const letters='EATSBDCNORPV';
+    const letter=letters[Math.floor(t/90)%letters.length];
+    ctx.fillStyle=col;
+    ctx.font=`600 ${sz*2}px system-ui`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(letter,0,0);
+  }
+  ctx.restore();
+}
+
+function drawButterfly(sz,col,acc){
+  const flap=Math.sin(t*0.2)*0.3+0.7;
+  ctx.strokeStyle=acc;ctx.lineWidth=1.5;
+  ctx.fillStyle=acc+'99';
+  const wings=[[-0.5,-0.3,Math.PI/4,0.6,0.4],[0.5,-0.3,-Math.PI/4,0.6,0.4],[-0.4,0.25,Math.PI/3,0.5,0.3],[0.4,0.25,-Math.PI/3,0.5,0.3]];
+  wings.forEach(([sx,sy,angle,rx,ry])=>{
+    ctx.beginPath();
+    ctx.ellipse(sx*sz*flap*0.9,sy*sz,rx*sz*flap,ry*sz,angle,0,Math.PI*2);
+    ctx.fill();ctx.stroke();
+  });
+  ctx.strokeStyle=col;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(0,-sz*0.7);ctx.bezierCurveTo(3,0,3,sz*0.3,0,sz*0.7);ctx.stroke();
+}
+
+function mirePos(p){
+  const mx=W*0.12,my=H*0.12;
+  const rw=W-2*mx,rh=H-2*my;
+  const sp=p.speed*0.007;
+  if(p.axis==='h')return{x:mx+rw*(0.5+0.5*Math.sin(t*sp)),y:H/2};
+  if(p.axis==='v')return{x:W/2,y:my+rh*(0.5+0.5*Math.sin(t*sp))};
+  return{x:W/2+rw*0.42*Math.cos(t*sp),y:H/2+rh*0.35*Math.sin(t*sp*2)};
+}
+
+function updateTimer(p){
+  const elapsed=(Date.now()-startTime)/1000;
+  const pct=Math.min(elapsed/p.dur*100,100);
+  $('timer-bar').style.width=pct+'%';
+  const remaining=Math.max(0,Math.ceil(p.dur-elapsed));
+  $('timer-label').textContent=remaining+'s';
+  if(elapsed>=p.dur){
+    stop();
+    $('end-screen').style.display='flex';
+  }
+}
+
+function frame(){
+  const p=getParams();
+  t++;
+  drawBG(p);
+  if(p.mode==='pursuit'){
+    const pos=mirePos(p);
+    drawMire(p,pos.x,pos.y);
+  }else if(p.mode==='saccade'){
+    sacTimer++;
+    const interval=Math.round(110-p.speed*9);
+    if(sacTimer>interval){sacTimer=0;sacSide=1-sacSide;}
+    drawMire(p,sacSide===0?W*0.2:W*0.8,H/2);
+    const col=mireColor(p)+'55';
+    ctx.fillStyle=col;ctx.font='16px system-ui';ctx.textAlign='center';
+    ctx.fillText('◀',W*0.07,H/2+5);
+    ctx.fillText('▶',W*0.93,H/2+5);
+  }else if(p.mode==='vergence'){
+    const spread=55+Math.sin(t*p.speed*0.005)*45;
+    drawMire(p,W/2-spread,H/2);
+    drawMire(p,W/2+spread,H/2);
+    ctx.fillStyle=mireColor(p);
+    ctx.font='13px system-ui';ctx.textAlign='center';
+    ctx.fillText('Fixez le point central',W/2,H/2+50+p.size*8);
+  }else{
+    drawMire(p,W/2,H/2);
+    if(Math.floor(t/100)%2===0){
+      ctx.strokeStyle=mireColor(p)+'44';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(W/2,H/2,50+p.size*10,0,Math.PI*2);ctx.stroke();
+    }
+  }
+  updateTimer(p);
+  if(running)animId=requestAnimationFrame(frame);
+}
+
+function start(){
+  if(running)return;
+  $('end-screen').style.display='none';
+  running=true;t=0;sacTimer=0;sacSide=0;
+  startTime=Date.now();
+  durMs=parseInt($('dur').value)*1000;
+  resize();
+  $('timer-label').style.display='block';
+  $('timer-bar').style.width='0%';
+  $('startBtn').style.background='#178a64';
+  frame();
+}
+
+function stop(){
+  running=false;
+  if(animId)cancelAnimationFrame(animId);
+  $('timer-label').style.display='none';
+  $('startBtn').style.background='#1D9E75';
+  ctx.clearRect(0,0,W,H);
+}
+
+function restartFromEnd(){
+  $('end-screen').style.display='none';
+  start();
+}
+
+$('startBtn').onclick=start;
+$('stopBtn').onclick=stop;
+$('fsBtn').onclick=()=>{
+  const el=document.documentElement;
+  if(!document.fullscreenElement)el.requestFullscreen&&el.requestFullscreen();
+  else document.exitFullscreen&&document.exitFullscreen();
+};
+
+['speed','size','dur'].forEach(id=>{
+  $(id).oninput=()=>{$(id+'-val').textContent=$(id).value;};
+});
+
+function buildURL(){
+  const p=getParams();
+  const base=location.origin+location.pathname;
+  return base+'?mode='+p.mode+'&target='+p.target+'&bg='+p.bg+'&axis='+p.axis+'&speed='+p.speed+'&size='+p.size+'&dur='+p.dur;
+}
+
+$('urlBtn').onclick=()=>{
+  const box=$('url-box');
+  box.style.display='block';
+  $('url-text').textContent=buildURL();
+  $('patient-hint').style.display='block';
+};
+
+$('copyBtn').onclick=()=>{
+  navigator.clipboard.writeText($('url-text').textContent).then(()=>{
+    $('copyBtn').textContent='✓ Copié';
+    setTimeout(()=>$('copyBtn').textContent='Copier',2500);
+  });
+};
+
+function applyURL(){
+  const params=new URLSearchParams(location.search);
+  if(![...params].length)return;
+  ['mode','target','bg','axis'].forEach(id=>{
+    if(params.has(id))$(id).value=params.get(id);
+  });
+  ['speed','size','dur'].forEach(id=>{
+    if(params.has(id)){$(id).value=params.get(id);$(id+'-val').textContent=params.get(id);}
+  });
+  // Auto-start + hide panel for patient view
+  $('panel').style.display='none';
+  start();
+  // Show stop button on click
+  canvas.addEventListener('click',()=>{
+    if(running){stop();$('panel').style.display='block';}
+  },{once:true});
+}
+
+window.addEventListener('resize',()=>{checkerPat=null;if(running)resize();});
+resize();
+applyURL();
+</script>
+</body>
+</html>
