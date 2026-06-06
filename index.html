@@ -341,10 +341,7 @@ function applyURL(){
   // Auto-start + hide panel for patient view
   $('panel').style.display='none';
   start();
-  // Show stop button on click
-  canvas.addEventListener('click',()=>{
-    if(running){stop();$('panel').style.display='block';}
-  },{once:true});
+
 }
 
 window.addEventListener('resize',()=>{checkerPat=null;if(running)resize();});
